@@ -120,7 +120,7 @@ python setup_models.py
 
    * **DroidCam IP Stream:**
      ```bash
-     python main.py 192.168.0.103:4747
+     python main.py <ip_address_of_droidcam_mobile_client>:4747
      ```
 
    * **Custom Video File:**
