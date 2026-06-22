@@ -248,9 +248,9 @@ Use this project during:
 ---
 
 # Live MediaPipe 
-![MediaPipe Hand Tracking Demo] (https://google-ai-edge.github.io/mediapipe-samples-web/#/vision/hand_landmarker)
 
-![Google AI Media Pipe] (https://ai.google.dev/edge/mediapipe/solutions/guide)
+* [MediaPipe Hand Tracking Demo](https://google-ai-edge.github.io/mediapipe-samples-web/#/vision/hand_landmarker)
+* [Google AI Media Pipe Documentation](https://ai.google.dev/edge/mediapipe/solutions/guide)
 
 ---
 
