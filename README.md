@@ -1,49 +1,60 @@
 # Gesture Control Presenter 🎮🖐️
 
-Control your Google Slides presentations using hand gestures through your laptop camera using Computer Vision and AI.
+Control your Google Slides and PowerPoint presentations using natural hand gestures in the air, powered by AI and Computer Vision.
 
-This project uses:
+This project maps hand movement trajectories and shapes to standard slideshow shortcuts:
 
-* OpenCV
-* MediaPipe
-* PyAutoGUI
-
-to detect hand gestures and convert them into presentation controls like:
-
-* Next Slide
-* Previous Slide
-* Start Presentation
-* Exit Presentation
+* **Swipe Left ⬅️** $\rightarrow$ Next Slide
+* **Swipe Right ➡️** $\rightarrow$ Previous Slide
+* **Swipe Down ⬇️** $\rightarrow$ Start Presentation
+* **Swipe Up ⬆️** $\rightarrow$ Exit Presentation
+* **One Finger ☝️** $\rightarrow$ Close Python Script
 
 ---
 
 # 🚀 Features
 
-✅ Control Google Slides using gestures
-✅ Real-time hand tracking using AI
-✅ Works directly from laptop webcam
-✅ No additional hardware required
-✅ Beginner-friendly AI + Computer Vision project
+* **Dynamic Swipe Recognition**: Tracks hand position history and velocity over time to identify distinct directional swipes (Left, Right, Up, Down).
+* **Return Stroke Filtering & Cooldown**: Automatically filters out return hand movements to prevent accidental duplicate actions.
+* **Flexible Camera Support**: Connects to your standard laptop webcam, external USB camera, or mobile device camera (via DroidCam IP stream).
+* **Robust Window Manager Support**: Includes automated display authority resolution to support modern Wayland/Mutter desktops out of the box.
+* **Persistent Visual Feedback**: Displays the last recognized gesture directly on the video stream window for `1.2` seconds.
+* **Safety Exit Gesture**: Detects a single finger held up continuously for `0.4` seconds to safely terminate the script.
 
 ---
 
 # 🧠 Gesture Controls
 
-| Gesture          | Action          |
-| ---------------- | --------------- |
-| ✋ Open Palm      | Next Slide      |
-| 🤟 Three Fingers | Previous Slide  |
-| ✌️ Two Fingers   | Start Slideshow |
-| ✊ Fist           | Exit Slideshow  |
+### 🖐️ Right Hand: Presentation Controls
+| Gesture | Action | Description |
+| :--- | :--- | :--- |
+| **Swipe Left** ⬅️ | **Next Slide** | Swipe your hand from right to left across the screen |
+| **Swipe Right** ➡️ | **Previous Slide** | Swipe your hand from left to right across the screen |
+| **Swipe Up** ⬆️ | **Exit Slideshow** | Swipe your hand upwards |
+| **Swipe Down** ⬇️ | **Start Slideshow** | Swipe your hand downwards |
+
+### 🤚 Left Hand: Volume & Zoom Controls
+| Gesture | Action | Description |
+| :--- | :--- | :--- |
+| **2 Fingers Up** + **Move Up** ⬆️ | **Volume Up** | Hold up 2 fingers (Index + Middle) and move your hand upwards |
+| **2 Fingers Up** + **Move Down** ⬇️ | **Volume Down** | Hold up 2 fingers (Index + Middle) and move your hand downwards |
+| **3 Fingers Up** + **Move Up** ⬆️ | **Zoom In** | Hold up 3 fingers (Index + Middle + Ring) and move your hand upwards |
+| **3 Fingers Up** + **Move Down** ⬇️ | **Zoom Out** | Hold up 3 fingers (Index + Middle + Ring) and move your hand downwards |
+
+### ☝️ Either Hand: Safety Exit
+| Gesture | Action | Description |
+| :--- | :--- | :--- |
+| **1 Finger Up** | **Close Script** | Hold up 1 finger continuously for ~0.4s to close the Python app |
 
 ---
 
 # 🛠️ Technologies Used
 
-* Python
-* OpenCV
-* MediaPipe
-* PyAutoGUI
+* **Python 3.10+**: Core scripting language.
+* **OpenCV (opencv-python)**: Video capture, frame flipping, visual overlay rendering, and window management.
+* **MediaPipe**: Real-time hand landmarks tracking model.
+* **PyAutoGUI & Python-Xlib**: Automated keyboard shortcut injection.
+* **Bash & Windows Batch**: Installer automation scripts.
 
 ---
 
@@ -160,10 +171,12 @@ Without these permissions, the app cannot control Google Slides.
 gesture-control/
 │
 ├── .gitignore
-├── main.py
+├── install.sh         # Linux/macOS automated installer
+├── install.bat        # Windows automated installer
+├── main.py            # Main application entry point
 ├── README.md
-├── requirements.txt
-├── setup_models.py
+├── requirements.txt   # Python package dependencies
+├── setup_models.py    # Downloads MediaPipe model assets
 └── models/
     └── hand_landmarker.task
 ```
@@ -182,24 +195,22 @@ pyautogui>=0.9.54
 
 # 🧩 How It Works
 
-The application:
+The application operates in five sequential stages:
 
-1. Captures webcam feed using OpenCV
-2. Detects hand landmarks using MediaPipe
-3. Identifies finger positions
-4. Maps gestures to keyboard shortcuts
-5. Uses PyAutoGUI to control Google Slides
+1. **Video Ingestion**: Captures real-time frames from your webcam, IP camera (DroidCam), or a pre-recorded file using OpenCV.
+2. **Hand Tracking**: MediaPipe Hand Landmarker tracks 21 distinct 3D landmarks on your hand at 30+ FPS.
+3. **Display Authority Matching**: Before connecting, the script dynamically patches the `python-xlib` library to support Mutter/Wayland Xauthority wildcards (empty display numbers) for modern Linux environments.
+4. **Trajectory & Shape Analysis**: 
+   * **Swipes**: Tracks the coordinates of your palm center (Middle Finger MCP) over a sliding history window. If the hand moves rapidly in a dominant direction (Left/Right/Up/Down) covering more than 18% of the screen dimension, a swipe event is detected.
+   * **Shutdown**: Analyzes finger extension using joint coordinates. If only 1 finger is up continuously for 12 frames, a clean exit is triggered.
+5. **Action Dispatching**: Dispatches simulated OS-level keyboard events using PyAutoGUI to control your slides.
 
 ---
 
 # 🔮 Future Improvements
 
-* Swipe gesture recognition
 * Gesture-based laser pointer
-* Volume control
-* Zoom gestures
 * AI-powered custom gesture training
-* Multi-hand support
 
 ---
 
@@ -237,7 +248,7 @@ Use this project during:
 ---
 
 # Live MediaPipe 
-![MediaPipe Hand Tracking Demo](https://google-ai-edge.github.io/mediapipe-samples-web/#/vision/hand_landmarker)
+![MediaPipe Hand Tracking Demo] (https://google-ai-edge.github.io/mediapipe-samples-web/#/vision/hand_landmarker)
 ![Google AI Media Pipe] (https://ai.google.dev/edge/mediapipe/solutions/guide)
 
 ---

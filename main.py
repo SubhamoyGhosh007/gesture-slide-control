@@ -41,7 +41,7 @@ if not os.path.exists(model_path):
 base_options = mp.tasks.BaseOptions(model_asset_path=model_path)
 options = vision.HandLandmarkerOptions(
     base_options=base_options,
-    num_hands=1,
+    num_hands=2,  # Enable multi-hand support
     min_hand_detection_confidence=0.6,
     min_hand_presence_confidence=0.6,
     min_tracking_confidence=0.6
@@ -96,6 +96,11 @@ history = deque(maxlen=20)
 one_finger_frames = 0
 active_gesture = "Waiting..."
 gesture_display_until = 0
+
+# Left hand tracking for volume/zoom level adjustments
+last_left_y = None
+left_hand_action_time = 0
+left_hand_cooldown = 0.15  # Volume/zoom adjustments can repeat faster
 
 def fingers_up(hand_landmarks):
     """Detect which fingers are up based on landmarks"""
@@ -160,11 +165,9 @@ while True:
     if not success:
         break
 
-    # Mirror the frame so hand movement feels natural to the person on camera.
-    frame = cv2.flip(frame, 1)
     h, w, c = frame.shape
 
-    # Convert BGR to RGB for MediaPipe
+    # Convert BGR to RGB (unflipped) for MediaPipe so handedness classification is accurate
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
     # Create MediaPipe image
@@ -173,19 +176,29 @@ while True:
     # Detect hand landmarks
     detection_result = hand_landmarker.detect(mp_image)
 
+    # Mirror the frame so hand movement feels natural to the person on camera
+    frame = cv2.flip(frame, 1)
+
     current_time = time.time()
+    left_hand_present = False
+    any_hand_present = False
 
     if detection_result.hand_landmarks:
 
-        for hand_landmarks in detection_result.hand_landmarks:
+        for hand_idx, hand_landmarks in enumerate(detection_result.hand_landmarks):
+            any_hand_present = True
             
-            # Draw hand landmarks
+            # Get handedness classification
+            handedness_category = detection_result.handedness[hand_idx][0]
+            hand_type = handedness_category.category_name  # "Left" or "Right"
+            
+            # Draw hand landmarks (mirrored coordinates: 1.0 - landmark.x)
             for landmark in hand_landmarks:
-                x = int(landmark.x * w)
+                x = int((1.0 - landmark.x) * w)
                 y = int(landmark.y * h)
                 cv2.circle(frame, (x, y), 2, (0, 255, 0), 1)
             
-            # Draw connections between landmarks
+            # Draw connections between landmarks (mirrored)
             connections = [
                 (0, 1), (1, 2), (2, 3), (3, 4),          # Thumb
                 (5, 6), (6, 7), (7, 8),                  # Index
@@ -199,8 +212,8 @@ while True:
                 start_idx, end_idx = connection
                 start = hand_landmarks[start_idx]
                 end = hand_landmarks[end_idx]
-                x1, y1 = int(start.x * w), int(start.y * h)
-                x2, y2 = int(end.x * w), int(end.y * h)
+                x1, y1 = int((1.0 - start.x) * w), int(start.y * h)
+                x2, y2 = int((1.0 - end.x) * w), int(end.y * h)
                 cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 1)
 
             # 1. Handle one-finger exit gesture (close application if held for 12 frames)
@@ -217,43 +230,88 @@ while True:
             else:
                 one_finger_frames = 0
 
-            # 2. Track middle-finger MCP landmark (9) for swipe tracking
+            # Get palm center coordinates (mirrored)
             hand_center = hand_landmarks[9]
-            history.append((hand_center.x, hand_center.y, current_time))
+            mx = 1.0 - hand_center.x
+            my = hand_center.y
 
-            # 3. Detect and trigger swipes after cooldown
-            if current_time - last_time > cooldown:
-                swipe = detect_swipe(history)
-                if swipe:
-                    if swipe == "left":
-                        pyautogui.press("right")
-                        active_gesture = "Next Slide (Swipe Left)"
-                        gesture_display_until = current_time + 1.2
-                        last_time = current_time
-                        history.clear()
-                    elif swipe == "right":
-                        pyautogui.press("left")
-                        active_gesture = "Previous Slide (Swipe Right)"
-                        gesture_display_until = current_time + 1.2
-                        last_time = current_time
-                        history.clear()
-                    elif swipe == "up":
-                        pyautogui.press("esc")
-                        active_gesture = "Exit Slideshow (Swipe Up)"
-                        gesture_display_until = current_time + 1.2
-                        last_time = current_time
-                        history.clear()
-                    elif swipe == "down":
-                        if sys.platform.startswith("linux") or sys.platform.startswith("win"):
-                            pyautogui.hotkey("ctrl", "f5")
-                        else:
-                            pyautogui.hotkey("command", "option", "p")
-                        active_gesture = "Start Slideshow (Swipe Down)"
-                        gesture_display_until = current_time + 1.2
-                        last_time = current_time
-                        history.clear()
-    else:
-        # Reset buffers when no hand is in view
+            if hand_type == "Right":
+                # Right Hand -> Slideshow control (Swipe gestures)
+                history.append((mx, my, current_time))
+
+                # Detect and trigger swipes after cooldown
+                if current_time - last_time > cooldown:
+                    swipe = detect_swipe(history)
+                    if swipe:
+                        if swipe == "left":
+                            pyautogui.press("right")
+                            active_gesture = "Next Slide (Swipe Left)"
+                            gesture_display_until = current_time + 1.2
+                            last_time = current_time
+                            history.clear()
+                        elif swipe == "right":
+                            pyautogui.press("left")
+                            active_gesture = "Previous Slide (Swipe Right)"
+                            gesture_display_until = current_time + 1.2
+                            last_time = current_time
+                            history.clear()
+                        elif swipe == "up":
+                            pyautogui.press("esc")
+                            active_gesture = "Exit Slideshow (Swipe Up)"
+                            gesture_display_until = current_time + 1.2
+                            last_time = current_time
+                            history.clear()
+                        elif swipe == "down":
+                            if sys.platform.startswith("linux") or sys.platform.startswith("win"):
+                                pyautogui.hotkey("ctrl", "f5")
+                            else:
+                                pyautogui.hotkey("command", "option", "p")
+                            active_gesture = "Start Slideshow (Swipe Down)"
+                            gesture_display_until = current_time + 1.2
+                            last_time = current_time
+                            history.clear()
+                            
+            elif hand_type == "Left":
+                # Left Hand -> Volume & Zoom control
+                left_hand_present = True
+                if last_left_y is not None and (current_time - left_hand_action_time > left_hand_cooldown):
+                    dy = my - last_left_y
+                    motion_threshold = 0.05
+                    
+                    if total == 2:
+                        # 2 fingers extended -> Volume adjustment
+                        if dy < -motion_threshold:
+                            pyautogui.press("volumeup")
+                            active_gesture = "Volume Up"
+                            gesture_display_until = current_time + 0.8
+                            left_hand_action_time = current_time
+                        elif dy > motion_threshold:
+                            pyautogui.press("volumedown")
+                            active_gesture = "Volume Down"
+                            gesture_display_until = current_time + 0.8
+                            left_hand_action_time = current_time
+                            
+                    elif total == 3:
+                        # 3 fingers extended -> Browser Zoom adjustment
+                        modifier = "ctrl" if sys.platform.startswith("linux") or sys.platform.startswith("win") else "command"
+                        if dy < -motion_threshold:
+                            pyautogui.hotkey(modifier, "=")
+                            active_gesture = "Zoom In"
+                            gesture_display_until = current_time + 0.8
+                            left_hand_action_time = current_time
+                        elif dy > motion_threshold:
+                            pyautogui.hotkey(modifier, "-")
+                            active_gesture = "Zoom Out"
+                            gesture_display_until = current_time + 0.8
+                            left_hand_action_time = current_time
+                            
+                # Save current Y coordinate for next frame delta check
+                last_left_y = my
+
+    # Reset tracking state if relevant hand is missing
+    if not left_hand_present:
+        last_left_y = None
+    if not any_hand_present:
         history.clear()
         one_finger_frames = 0
 
